@@ -9,9 +9,8 @@ const REFRESH_TOKEN_TTL = 14 * 24 * 60 * 60 * 1000; // 14 days
 
 export const signUp = async (req, res) => {
   try {
-    const { username, password, email, firstName, lastName } = req.body;
-
     // Check if all required information is provided
+    const { username, password, email, firstName, lastName } = req.body;
     if (!username || !password || !email || !firstName || !lastName) {
       return res.status(400).json({
         message: "Username, password, email, first name, and last name are required fields.",
@@ -45,9 +44,8 @@ export const signUp = async (req, res) => {
 
 export const signIn = async (req, res) => {
   try {
-    const { username, password } = req.body;
-
     // Check if all required information is provided
+    const { username, password } = req.body;
     if (!username || !password) {
       return res.status(400).json({ message: "Username or password is missing." });
     }
@@ -118,6 +116,42 @@ export const signOut = async (req, res) => {
     return res.sendStatus(204);
   } catch (error) {
     console.error("Error occurred while calling signOut", error);
+    return res.status(500).json({ message: "Server error." });
+  }
+};
+
+export const refreshToken = async (req, res) => {
+  try {
+    // Get the refresh token from the cookie
+    const token = req.cookies?.refreshToken;
+    if (!token) {
+      return res.status(401).json({ message: "Token không tồn tại." });
+    }
+
+    // Check if the refresh token exists in the database
+    const session = await Session.findOne({ refreshToken: token });
+    if (!session) {
+      return res.status(403).json({ message: "Token không hợp lệ hoặc đã hết hạn" });
+    }
+
+    // Check if the refresh token has expired
+    if (session.expiresAt < new Date()) {
+      return res.status(403).json({ message: "Token đã hết hạn." });
+    }
+
+    // Generate new access token
+    const accessToken = jwt.sign(
+      {
+        userId: session.userId,
+      },
+      process.env.ACCESS_TOKEN_SECRET,
+      { expiresIn: ACCESS_TOKEN_TTL }
+    );
+
+    // return
+    return res.status(200).json({ accessToken });
+  } catch (error) {
+    console.error("Error occurred while calling refreshToken", error);
     return res.status(500).json({ message: "Server error." });
   }
 };
