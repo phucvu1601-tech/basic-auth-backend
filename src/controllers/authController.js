@@ -102,3 +102,22 @@ export const signIn = async (req, res) => {
     return res.status(500).json({ message: "Server error." });
   }
 };
+
+export const signOut = async (req, res) => {
+  try {
+    // Get the refresh token from the cookie (by cookieParser())
+    const token = req.cookies?.refreshToken;
+    if (token) {
+      // Clear the refresh token stored in the session
+      await Session.deleteOne({ refreshToken: token });
+
+      // Clear the cookie from the client
+      res.clearCookie("refreshToken");
+    }
+
+    return res.sendStatus(204);
+  } catch (error) {
+    console.error("Error occurred while calling signOut", error);
+    return res.status(500).json({ message: "Server error." });
+  }
+};
