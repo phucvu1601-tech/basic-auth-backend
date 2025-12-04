@@ -2,7 +2,9 @@ import express from 'express'
 import dotenv from 'dotenv'
 import { connectDB } from './libs/db.js';
 import authRoute from "./routes/authRoute.js";
+import userRoute from "./routes/userRoute.js";
 import cookieParser from "cookie-parser";
+import { verifyToken } from './middlewares/authMiddleware.js';
 
 dotenv.config()
 const app = express();
@@ -16,7 +18,8 @@ app.use(cookieParser());
 app.use('/api/auth', authRoute);
 
 //private routes
-
+app.use(verifyToken);
+app.use("/api/user", userRoute);
 
 connectDB().then(()=>{
     app.listen(PORT, ()=>{
