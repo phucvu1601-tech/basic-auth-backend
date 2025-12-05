@@ -1,0 +1,226 @@
+openapi: 3.0.3
+info:
+  title: Authentication API
+  version: 1.0.0
+  description: |
+    Secure authentication system with JWT access token (30 min) + HttpOnly refresh token (14 days)
+  contact:
+    name: API Support
+
+servers:
+  - url: http://localhost:5001/api
+    description: Local development
+  - url: https://api.yourdomain.com/api
+    description: Production
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT Access Token received after successful sign-in
+
+  schemas:
+    SignupRequest:
+      type: object
+      required: [username, password, email, firstName, lastName]
+      properties:
+        username:
+          type: string
+          minLength: 3
+          example: johndoe
+        password:
+          type: string
+          format: password
+          minLength: 6
+        email:
+          type: string
+          format: email
+          example: john@example.com
+        firstName:
+          type: string
+          example: John
+        lastName:
+          type: string
+          example: Doe
+
+    SigninRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          example: johndoe
+        password:
+          type: string
+          format: password
+
+    AuthSuccess:
+      type: object
+      properties:
+        message:
+          type: string
+          example: User John Doe logged in successfully.
+        accessToken:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.xxxxx
+
+    UserProfile:
+      type: object
+      properties:
+        _id:
+          type: string
+        username:
+          type: string
+        email:
+          type: string
+        displayName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+
+paths:
+  /auth/signup:
+    post:
+      summary: Register a new user
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupRequest'
+      responses:
+        '204':
+          description: User created successfully (No Content)
+        '400':
+          description: Missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Username already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/signin:
+    post:
+      summary: Sign in – receive access token + refresh token cookie
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SigninRequest'
+      responses:
+        '200':
+          description: Login successful
+          headers:
+            Set-Cookie:
+              description: HttpOnly refresh token cookie (14 days)
+              schema:
+                type: string
+                example: refreshToken=abc123...; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=1209600
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSuccess'
+        '400':
+          description: Missing username or password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/signout:
+    post:
+      summary: Sign out current device
+      tags: [Authentication]
+      security: []
+      responses:
+        '204':
+          description: Signed out successfully – refresh token revoked and cookie cleared
+
+  /auth/refresh:
+    post:
+      summary: Refresh access token using HttpOnly cookie
+      tags: [Authentication]
+      security: []
+      responses:
+        '200':
+          description: New access token issued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:
+                    type: string
+        '401':
+          description: No refresh token provided
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Invalid or expired refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /user/me:
+    get:
+      summary: Get current authenticated user profile
+      tags: [User]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Current user information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/UserProfile'
+              example:
+                user:
+                  _id: "667f1a2b3c4d5e6f7890abcd"
+                  username: "johndoe"
+                  email: "john@example.com"
+                  displayName: "John Doe"
+                  createdAt: "2025-01-01T00:00:00.000Z"
+                  updatedAt: "2025-01-01T08:30:00.000Z"
+        '401':
+          description: Unauthorized – invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+# Global security (optional – only applies to routes that don't override it)
+security:
+  - BearerAuth: []
